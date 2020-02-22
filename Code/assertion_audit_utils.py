@@ -2,6 +2,7 @@ from __future__ import division, print_function
 import math
 import numpy as np
 import scipy as sp
+import scipy.stats
 import pandas as pd
 import json
 import csv
@@ -1083,12 +1084,67 @@ class TestNonnegMean:
         one_vote_over = 0.5/(2-margin)
         p = 1
         j = 0
+        x = np.array([])
         while (p > alpha) and (j < N):
             j = j+1
-            x = clean*np.ones(j)
-            for k in range(j):
-                x[k] = one_vote_over if (k+1) % int(1/error_rate) == 0 else x[k]                   
+
+            val = clean
+            if not (j+1 % int(1/error_rate)):
+                val = one_vote_over
+
+            x = np.append(x, val)
+            
             p = TestNonnegMean.kaplan_martingale(x, N, t, random_order = False)[0]
+        return j
+
+    @classmethod
+    def wald_sprt_sample_size(cls, N, margin, error_rate, alpha=0.05, t=1/2):
+        """
+        Estimate the sample size needed to reject the null hypothesis
+        that the population mean is <=t at significance level alpha, using simulations,
+        for the wald_sprt method
+        
+        Parameters:
+        -----------
+        N : int
+            population size
+        margin : double
+            assorter margin 
+        error_rate : float 
+            assumed rates of 1-vote overstatements 
+        alpha : double
+            significance level in (0, 0.5)
+        t : double
+            hypothesized value of the population mean
+            
+        Returns:
+        --------
+        sample_size : int
+            sample size sufficient to confirm the outcome if discrepancies are not more frequent
+            in fact than the assumed rates
+        """
+        assert alpha > 0 and alpha < 1/2
+        assert margin > 0
+
+        prng = SHA256(1234567890)
+        one_vote_over = 0 
+        p = 1
+        j = 0
+        x = np.array([]) 
+        while (p > alpha) and (j < N):
+
+            if j+1 % int(1/error_rate) == 0: 
+                sample = 0
+            else:
+                sample = sp.stats.binom.rvs(1, .5+margin)
+
+            x = np.append(x, sample)
+            print(x)
+            j = j+1
+
+            p = TestNonnegMean.wald_sprt(x, N, t, p1=.5+margin, random_order=False)
+            print(p)
+
         return j
           
 # utilities
