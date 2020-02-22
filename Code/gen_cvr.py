@@ -3,6 +3,9 @@ Outputs "fake" CVR for consumption by SHANGRLA for elections that are
 conducted without CVRs. Note that the need for a CVR where there isn't one
 means that we can't audit more than one race at a time with SHANGRLA, since we
 can't know which combination of votes appears on which ballot.
+
+This also only works for vote-for-one contests, as again without CVRs we can't
+know which combinations of votes appear on which ballots. 
 """
 
 import csv
@@ -14,9 +17,11 @@ from assertion_audit_utils import CVR
 
 
 def main():
+    """
+    This is a fairly procedural program, so just wrap it in a main function
+    """
+
     interactive = True
-
-
     if len(sys.argv) > 1:
         interactive = False
 
@@ -61,12 +66,51 @@ def main():
 
                 res[cand] = votes
 
-
-    except Exception as ex:
+    except (KeyError, ValueError) as ex:
         print('Results file is mal-formatted: {}'.format(ex))
         sys.exit(1)
 
     assert sum(res.values()) <= total_votes, 'Results file shows more votes than reported!'
+
+
+
+def gen_cvrs(results, total):
+    """
+    Generate the CVRS.
+
+    Inputs:
+        results - dict of results {'cand': votes, ...}
+        total - the total number of votes
+    Outputs:
+        cvrs - a list of CVR-class objects corresponding to "fake" ballots.
+    """
+
+    cvrs = []
+    
+    cvr_cnt = 0
+    for cand in results:
+        for ballot in results[cand]:
+            cvr_id = 'Gen-{}'.format(cvr_cnt)
+            votes = dict.fromkeys(results.keys(), 0)
+
+            votes[cand] = 1
+
+            cvrs.append(CVR(id=cvr_id, votes=votes))
+
+            cvr_id += 1
+
+    phantoms = totals - sum(results.values())
+
+    for p in phantoms:
+        cvr_id = 'Gen-{}'.format(cvr_cnt)
+        votes = dict.fromkeys(results.keys(), 0)
+
+        cvrs.append(CVR(id=cvr_id, votes=votes, phantom=True))
+
+        cvr_id += 1
+
+
+
 
 if __name__ == '__main__':
     main()
